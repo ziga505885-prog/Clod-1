@@ -35,6 +35,8 @@ class InspectionReport:
     defects: list[Defect] = field(default_factory=list)
     defect_summary: list[Defect] = field(default_factory=list)
     defect_characteristics: list[Defect] = field(default_factory=list)
+    drawing_defects: list[Defect] = field(default_factory=list)
+    photo_defects: list[Defect] = field(default_factory=list)
     drawings: list[str] = field(default_factory=list)
     photos: list[str] = field(default_factory=list)
     conclusions: list[str] = field(default_factory=list)
