@@ -1,4 +1,8 @@
-"""Deterministic DOCX patch engine with GIP color semantics."""
+"""Safe deterministic DOCX patching with run-aware replacement.
+
+The engine preserves paragraph order and supports matches spanning multiple
+runs. It never patches an ambiguous occurrence.
+"""
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,47 +18,57 @@ class AppliedPatch:
 class DocxPatchEngine:
     def apply(self, path: str | Path, patch: Patch) -> AppliedPatch:
         validate_patch(patch)
-        p=Path(path)
+        p = Path(path)
         if p.suffix.lower() != ".docx":
             raise ValueError("patch engine accepts .docx files only")
-        doc=Document(p)
-        hits=0
+        doc = Document(p)
+        matches = 0
+        for paragraph in self._paragraphs(doc):
+            matches += self._patch_paragraph(paragraph, patch)
+        if matches != 1:
+            raise ValueError(f"Expected exactly one editable match, found {matches}")
+        doc.save(p)
+        return AppliedPatch(patch, matches)
+
+    @staticmethod
+    def _paragraphs(doc):
         for paragraph in doc.paragraphs:
-            hits += self._paragraph(paragraph, patch)
+            yield paragraph
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
                     for paragraph in cell.paragraphs:
-                        hits += self._paragraph(paragraph, patch)
-        if hits != 1:
-            raise ValueError(f"Expected exactly one editable match, found {hits}")
-        doc.save(p)
-        return AppliedPatch(patch, hits)
+                        yield paragraph
 
-    def _paragraph(self, paragraph, patch: Patch) -> int:
-        for run in paragraph.runs:
-            if patch.old in run.text:
-                before, after = run.text.split(patch.old, 1)
-                run.text = before
-                replacement=paragraph.add_run(patch.new)
-                self._color(replacement, patch)
-                tail=paragraph.add_run(after)
-                self._copy_basic_format(run, replacement)
-                self._copy_basic_format(run, tail)
-                return 1
-        return 0
+    def _patch_paragraph(self, paragraph, patch: Patch) -> int:
+        runs = paragraph.runs
+        if not runs:
+            return 0
+        full = "".join(run.text for run in runs)
+        start = full.find(patch.old)
+        if start < 0:
+            return 0
+        end = start + len(patch.old)
+        starts, cursor = [], 0
+        for run in runs:
+            starts.append((cursor, cursor + len(run.text)))
+            cursor += len(run.text)
+        touched = [i for i, (a, z) in enumerate(starts) if a < end and z > start]
+        if not touched:
+            return 0
+        first, last = touched[0], touched[-1]
+        prefix = full[starts[first][0]:start]
+        suffix = full[end:starts[last][1]]
+        source = runs[first]
+        source.text = prefix + patch.new + suffix
+        self._color(source, patch)
+        for i in range(first + 1, last + 1):
+            runs[i].text = ""
+        return 1
 
     @staticmethod
     def _color(run, patch: Patch) -> None:
         if patch.kind in (PatchKind.ADDRESS, PatchKind.DATE):
-            run.font.color.rgb=RGBColor(0,0,255)
+            run.font.color.rgb = RGBColor(0, 0, 255)
         else:
-            run.font.color.rgb=RGBColor(0,128,0)
-
-    @staticmethod
-    def _copy_basic_format(source, target) -> None:
-        target.bold=source.bold
-        target.italic=source.italic
-        target.underline=source.underline
-        target.font.name=source.font.name
-        target.font.size=source.font.size
+            run.font.color.rgb = RGBColor(0, 128, 0)
