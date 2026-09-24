@@ -69,7 +69,12 @@ def build_defect_graph(report: InspectionReport) -> DefectGraph:
     for d in report.defect_characteristics:
         graph.add("characteristics", d)
 
-    # Drawings/photos are represented by source references on defects.
+    for d in report.drawing_defects:
+        graph.add("drawing", d)
+    for d in report.photo_defects:
+        graph.add("photo", d)
+
+    # A report defect may also carry explicit links to drawing/photo evidence.
     for d in report.defects:
         if d.source_drawings:
             graph.add("drawing", d)
