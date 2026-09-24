@@ -1,0 +1,20 @@
+version: 0.2
+skills:
+  - id: report-structure
+    phase: MODEL
+  - id: metadata
+    phase: VALIDATE
+  - id: defects
+    phase: MODEL
+  - id: defect-summary
+    phase: VALIDATE
+  - id: defect-characteristics
+    phase: VALIDATE
+  - id: drawing-check
+    phase: VALIDATE
+  - id: address-check
+    phase: VALIDATE
+  - id: date-check
+    phase: VALIDATE
+  - id: final-validation
+    phase: VERIFY
