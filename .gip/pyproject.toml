@@ -1,0 +1,9 @@
+[project]
+name = "gip-foundation"
+version = "0.2.0"
+requires-python = ">=3.11"
+description = "Deterministic foundation for an engineering inspection report QA agent"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
