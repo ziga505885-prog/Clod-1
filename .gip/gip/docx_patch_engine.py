@@ -32,6 +32,7 @@ class DocxPatchEngine:
 
     @staticmethod
     def _paragraphs(doc):
+        # Main document body.
         for paragraph in doc.paragraphs:
             yield paragraph
         for table in doc.tables:
@@ -39,6 +40,20 @@ class DocxPatchEngine:
                 for cell in row.cells:
                     for paragraph in cell.paragraphs:
                         yield paragraph
+        # Headers/footers are part of the report and are explicitly included
+        # in GIP address/date checking. This catches stale hidden title blocks.
+        for section in doc.sections:
+            for container in (
+                section.header, section.first_page_header, section.even_page_header,
+                section.footer, section.first_page_footer, section.even_page_footer,
+            ):
+                for paragraph in container.paragraphs:
+                    yield paragraph
+                for table in container.tables:
+                    for row in table.rows:
+                        for cell in row.cells:
+                            for paragraph in cell.paragraphs:
+                                yield paragraph
 
     def _patch_paragraph(self, paragraph, patch: Patch) -> int:
         runs = paragraph.runs
