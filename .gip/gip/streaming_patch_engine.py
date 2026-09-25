@@ -137,9 +137,9 @@ def _set_run_color(run, mark: str) -> None:
 
 def _set_color(text_node, mark: str, parents) -> None:
     node = text_node
-    while node in parents and parents[node].tag != f"{{{W_NS}}}r":
-        node = parents[node]
-    if node not in parents:
+    while node is not None and node.tag != f"{{{W_NS}}}r":
+        node = parents.get(node)
+    if node is None:
         return
-    _set_run_color(parents[node], mark)
+    _set_run_color(node, mark)
 
