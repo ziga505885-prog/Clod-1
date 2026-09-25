@@ -9,7 +9,7 @@ class PatchPlanBuilder:
     def build_metadata(self,analysis:AnalysisResult,expected_contract:str|None=None,expected_address:str|None=None,expected_date:str|None=None)->list[Patch]:
         patches=[]
         if expected_contract and analysis.report.metadata.contract_number and analysis.report.metadata.contract_number!=expected_contract:
-            patches.append(Patch(PatchKind.NORMAL,"metadata",analysis.report.metadata.contract_number,expected_contract,"green",""))
+            patches.append(Patch(PatchKind.NORMAL,"metadata",analysis.report.metadata.contract_number,expected_contract,"red-green",""))
         if expected_address and analysis.report.metadata.address and analysis.report.metadata.address!=expected_address:
             patches.append(Patch(PatchKind.ADDRESS,"metadata",analysis.report.metadata.address,expected_address,"blue",""))
         if expected_date:
