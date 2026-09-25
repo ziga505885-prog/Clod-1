@@ -1,4 +1,4 @@
-"""Streaming metadata scanner for large DOCX reports."""
+"""Streaming metadata scanner and compatibility reader for large DOCX reports."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -6,6 +6,8 @@ from pathlib import Path
 import re
 from zipfile import ZipFile
 from xml.etree import ElementTree as ET
+
+from .streaming_reader import StreamingReportReader
 
 _W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 _W_T = f"{{{_W_NS}}}t"
@@ -52,9 +54,7 @@ class LargeDocxMetadataScanner:
                         elem.clear()
                 text = " ".join(text_chunks)
                 result.part_text_chars[name] = chars
-                result.contracts.extend(
-                    match.group(1) for match in CONTRACT_RE.finditer(text)
-                )
+                result.contracts.extend(match.group(1) for match in CONTRACT_RE.finditer(text))
                 result.dates.extend(DATE_RE.findall(text))
                 result.address_candidates.extend(_addresses(text))
 
@@ -62,6 +62,10 @@ class LargeDocxMetadataScanner:
         result.dates = _unique(result.dates)
         result.address_candidates = _unique(result.address_candidates)
         return result
+
+
+class StreamingDocxReader(StreamingReportReader):
+    """Backward-compatible name for the boundary-preserving streaming reader."""
 
 
 def _addresses(text: str) -> list[str]:
@@ -73,10 +77,7 @@ def _addresses(text: str) -> list[str]:
         r"(?:ул\.?\s*)?[А-ЯЁа-яё0-9 .-]+,\s*\d+[А-Яа-яA-Za-z]?)",
         re.I,
     )
-    return [
-        match.group(1).strip(" .;,:»\"")
-        for match in pattern.finditer(text)
-    ]
+    return [match.group(1).strip(" .;,:»\"") for match in pattern.finditer(text)]
 
 
 def _unique(values: list[str]) -> list[str]:
