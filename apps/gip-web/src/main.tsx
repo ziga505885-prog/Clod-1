@@ -10,6 +10,19 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  async function analyzeReport() {
+    if (!files.length) return;
+    setLoading(true); setError(""); setResult(null);
+    const form = new FormData();
+    form.append("file", files[0]);
+    try {
+      const r = await fetch("http://localhost:8000/api/v1/reports/analyze", { method: "POST", body: form });
+      if (!r.ok) throw new Error(await r.text());
+      setResult(await r.json());
+    } catch (e) { setError(e instanceof Error ? e.message : "Ошибка соединения с API"); }
+    finally { setLoading(false); }
+  }
+
   async function analyze() {
     if (!files.length) return;
     setLoading(true); setError(""); setResult(null);
@@ -30,7 +43,7 @@ function App() {
       <h1>Проверка инженерных расчётов</h1>
       <p>Загрузи расчётные материалы. ГИП анализирует их отдельно, сохраняя исходные значения.</p>
       <label className="upload"><input type="file" multiple accept=".doc,.docx,.xlsx" onChange={e => setFiles(Array.from(e.target.files ?? []))}/><b>Выбрать расчётные файлы</b><span>{files.length ? files.map(f => f.name).join(", ") : "DOC / DOCX / XLSX"}</span></label>
-      <button disabled={!files.length || loading} onClick={analyze}>{loading ? "Проверяем…" : "Проверить расчёты"}</button>
+      <div className="actions"><button disabled={!files.length || loading} onClick={analyzeReport}>Проверить отчёт</button><button disabled={!files.length || loading} onClick={analyze}>{loading ? "Проверяем…" : "Проверить расчёты"}</button></div>
       {error && <div className="error">{error}</div>}
       {result && <section className="result"><h2>Результат проверки</h2><p>Файлы: {result.sources.join(", ")}</p><h3>Замечания</h3>{result.findings.length ? result.findings.map((f,i)=><article key={i}><b>{f.code ?? "FINDING"}</b><p>{f.message ?? JSON.stringify(f)}</p></article>) : <p>Детерминированных замечаний не обнаружено.</p>}<h3>Расчётный контекст</h3><p>{result.traces.length} контекстных фрагментов извлечено.</p></section>}
     </section>
