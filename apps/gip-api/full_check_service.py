@@ -5,6 +5,7 @@ if str(CORE) not in sys.path: sys.path.insert(0, str(CORE))
 from gip.analyzer import DocxReportAnalyzer
 from gip.patch_planner import PatchPlanBuilder
 from gip.docx_patch_engine import DocxPatchEngine
+from gip.streaming_patch_engine import StreamingDocxPatchEngine
 from gip.docx_verify_engine import DocxVerificationEngine
 from gip.full_inspection import inspect_document
 
@@ -18,7 +19,7 @@ def patch_and_verify_report(path: Path, expected_contract=None, expected_address
     )
     applied = []
     verification = []
-    engine = DocxPatchEngine()
+    engine = StreamingDocxPatchEngine()
     verifier = DocxVerificationEngine()
     for patch in patches:
         engine.apply(path, patch)
