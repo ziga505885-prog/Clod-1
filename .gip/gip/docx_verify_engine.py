@@ -58,6 +58,13 @@ class DocxVerificationEngine:
     def _runs(self, doc):
         out = [r for p in doc.paragraphs for r in p.runs]
         out += [r for t in doc.tables for row in t.rows for c in row.cells for p in c.paragraphs for r in p.runs]
+        for section in doc.sections:
+            for container in (
+                section.header, section.first_page_header, section.even_page_header,
+                section.footer, section.first_page_footer, section.even_page_footer,
+            ):
+                out += [r for p in container.paragraphs for r in p.runs]
+                out += [r for t in container.tables for row in t.rows for c in row.cells for p in c.paragraphs for r in p.runs]
         return out
 
     @staticmethod
