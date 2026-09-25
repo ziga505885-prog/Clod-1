@@ -30,6 +30,7 @@ class StreamingDocxResult:
     parts: list[DocxPart] = field(default_factory=list)
     paragraphs: list[str] = field(default_factory=list)
     table_rows: list[list[str]] = field(default_factory=list)
+    paragraphs_by_part: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def text_chars(self) -> int:
@@ -84,6 +85,7 @@ class StreamingDocxReader:
         chars = 0
         current_row: list[str] | None = None
         current_cell: list[str] | None = None
+        part_paragraphs: list[str] = []
 
         with archive.open(name, "r") as stream:
             for event, elem in ET.iterparse(stream, events=("start", "end")):
@@ -123,7 +125,11 @@ class StreamingDocxReader:
                         paragraph_count += 1
                         if collect_paragraphs:
                             result.paragraphs.append(text)
+                            part_paragraphs.append(text)
                     elem.clear()
+
+        if collect_paragraphs:
+            result.paragraphs_by_part[name] = part_paragraphs
 
         return DocxPart(
             name=name,
