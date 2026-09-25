@@ -91,10 +91,14 @@ async def full_check(
                 path.write_bytes(await upload.read())
                 graphics_result.append(inspect_graphics(path).__dict__)
 
+        reconciliation_findings = [
+            f.__dict__ for f in report_result.findings
+            if f.code.startswith("DEFECT_") or f.code == "DUPLICATE_DEFECT_ID"
+        ]
         return {
             "stage": "analysis_only",
-            "document_patch": False,
-            "reconciliation": {"enabled": True},
+            "document_patch": True,
+            "reconciliation": {"enabled": True, "findings": reconciliation_findings},
             "report": {
                 "findings": [f.__dict__ for f in report_result.findings],
                 "contracts": report_result.analysis.contract_candidates,
