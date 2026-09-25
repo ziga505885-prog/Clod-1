@@ -71,3 +71,16 @@ def test_streaming_patch_across_word_runs(tmp_path):
     assert "Пушкинская, 53А" not in data
     assert "Набережная, 28А" in data
     assert "Адрес: " in data
+
+
+def test_streaming_patch_red_green_keeps_old_and_adds_green(tmp_path):
+    path = tmp_path / "audit.docx"
+    _docx(path, {"word/document.xml": _xml("старый текст")})
+    patch = Patch(PatchKind.NORMAL, "старый текст", "новый текст", "red-green")
+    StreamingDocxPatchEngine().apply(path, patch)
+    with ZipFile(path) as z:
+        data = z.read("word/document.xml").decode()
+    assert "старый текст" in data
+    assert "новый текст" in data
+    assert 'w:val="FF0000"' in data
+    assert 'w:val="008000"' in data
