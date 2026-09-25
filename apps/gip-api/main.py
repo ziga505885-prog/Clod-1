@@ -91,6 +91,7 @@ async def full_check(
         return {
             "stage": "analysis_only",
             "document_patch": False,
+            "reconciliation": {"enabled": True},
             "report": {
                 "findings": [f.__dict__ for f in report_result.findings],
                 "contracts": report_result.analysis.contract_candidates,
