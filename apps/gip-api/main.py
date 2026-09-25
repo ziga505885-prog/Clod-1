@@ -111,7 +111,9 @@ async def full_check_and_fix(
         source = Path(tmp) / Path(report.filename).name
         source.write_bytes(await report.read())
         try:
-            applied, verification, final = patch_and_verify_report(source, expected_contract, expected_address, expected_date)
+            applied, verification, final, recheck = patch_and_verify_report(source, expected_contract, expected_address, expected_date)
+            if recheck is not None and recheck.findings:
+                raise ValueError("Повторная проверка выявила оставшиеся нарушения")
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         return {
