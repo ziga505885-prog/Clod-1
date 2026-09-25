@@ -31,9 +31,23 @@ class StreamingDocxVerifier:
 
     def verify(self, path: str | Path, patch) -> tuple[bool, list[str]]:
         errors = []
-        if self.count_text(path, patch.old):
+        old_count = self.count_text(path, patch.old)
+        new_count = self.count_text(path, patch.new)
+
+        if patch.mark == "red-green":
+            if old_count != 1:
+                errors.append("RED_OLD_TEXT_COUNT_IS_NOT_ONE")
+            if new_count != 1:
+                errors.append("GREEN_NEW_TEXT_COUNT_IS_NOT_ONE")
+            if not self.color_present(path, patch.old, "FF0000"):
+                errors.append("RED_OLD_TEXT_NOT_MARKED")
+            if not self.color_present(path, patch.new, "008000"):
+                errors.append("GREEN_NEW_TEXT_NOT_MARKED")
+            return not errors, errors
+
+        if old_count:
             errors.append("OLD_TEXT_STILL_PRESENT")
-        if self.count_text(path, patch.new) != 1:
+        if new_count != 1:
             errors.append("NEW_TEXT_COUNT_IS_NOT_ONE")
         expected = "0000FF" if patch.mark == "blue" else "008000"
         if not self.color_present(path, patch.new, expected):
