@@ -4,6 +4,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from .gip_adapter import analyze_uploaded_calculations
 from .report_adapter import inspect_uploaded_report
+from .full_check_service import patch_and_verify_report
 
 app = FastAPI(title="GIP API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -93,4 +94,30 @@ async def full_check(
                 "traces": [t.__dict__ for t in calc_result.traces],
                 "sources": [p.name for p in calc_paths],
             },
+        }
+
+
+@app.post("/api/v1/full-check-and-fix")
+async def full_check_and_fix(
+    report: UploadFile = File(...),
+    expected_contract: str | None = Form(None),
+    expected_address: str | None = Form(None),
+    expected_date: str | None = Form(None),
+):
+    if not report.filename or not report.filename.lower().endswith(".docx"):
+        raise HTTPException(400, "Для исправления требуется DOCX")
+    with TemporaryDirectory() as tmp:
+        source = Path(tmp) / Path(report.filename).name
+        source.write_bytes(await report.read())
+        try:
+            applied, verification, final = patch_and_verify_report(source, expected_contract, expected_address, expected_date)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        return {
+            "stage": "patched_and_verified",
+            "document_patch": True,
+            "source": report.filename,
+            "applied_patches": applied,
+            "patch_verification": verification,
+            "final_verification": {"passed": final.passed, "findings": [f.__dict__ for f in final.findings]},
         }
