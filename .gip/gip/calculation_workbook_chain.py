@@ -21,5 +21,5 @@ def build_input_chains(profile: CalculationWorkbookProfile) -> list[CalculationI
             soil_binding=s.lira_point,
             load_cases=loads,
         )
-        for s in profile.sections
+        for s in profile.bindings
     ]
