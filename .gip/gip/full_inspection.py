@@ -6,6 +6,8 @@ from pathlib import Path
 from .analyzer import AnalysisResult, DocxReportAnalyzer
 from .domain_analyzer import DomainAnalysisResult, analyze_domain
 from .rules import ALLOWED_CATEGORIES
+from .model import InspectionReport, Defect
+from .defect_reconciliation import reconcile_defects
 
 @dataclass(frozen=True)
 class InspectionFinding:
@@ -58,6 +60,16 @@ def _categories(a:AnalysisResult)->list[InspectionFinding]:
                     out.append(InspectionFinding("INVALID_CATEGORY","Category must contain exactly one allowed value.",f"table:{ti}:row:{ri}",(v,)))
     return out
 
+
+
+def _to_model_defects(items):
+    return [Defect(id=x.id, structure=x.source, description=x.description) for x in items]
+
+
+def _reconciliation_findings(domain):
+    model = InspectionReport(defects=_to_model_defects(domain.report), defect_summary=_to_model_defects(domain.summary), defect_characteristics=_to_model_defects(domain.characteristics), drawing_defects=_to_model_defects(domain.drawings))
+    return [InspectionFinding(x.code, x.message, x.source + '->' + x.target, tuple(x.evidence)) for x in reconcile_defects(model)]
+
 def inspect_document(path:str|Path,*,expected_contract:str|None=None,expected_address:str|None=None,expected_date:str|None=None)->FullInspectionResult:
     analysis=DocxReportAnalyzer().analyze(path)
     domain=analyze_domain(analysis)
@@ -86,6 +98,7 @@ def inspect_document(path:str|Path,*,expected_contract:str|None=None,expected_ad
 
     findings.extend(_categories(analysis))
     findings.extend(InspectionFinding(x.code,x.message,x.source,x.evidence) for x in domain.findings)
+    findings.extend(_reconciliation_findings(domain))
     known={x.id.casefold() for x in (*domain.report,*domain.summary) if x.id}
     for x in domain.drawings:
         if x.id and x.id.casefold() not in known:
