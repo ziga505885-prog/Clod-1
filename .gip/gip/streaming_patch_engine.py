@@ -52,6 +52,7 @@ class StreamingDocxPatchEngine:
     def _patch_xml(raw: bytes, old: str, new: str, mark: str):
         root = ET.fromstring(raw)
         count = 0
+        parents = {child: parent for parent in root.iter() for child in parent}
         for paragraph in root.findall(".//w:p", NS):
             texts = paragraph.findall(".//w:t", NS)
             if not texts:
@@ -68,16 +69,19 @@ class StreamingDocxPatchEngine:
                 if pos <= start and start + len(old) <= end:
                     local = start - pos
                     t.text = value[:local] + new + value[local + len(old):]
-                    _set_color(t, mark)
+                    _set_color(t, mark, parents)
                     count += 1
                     break
                 pos = end
         return ET.tostring(root, encoding="utf-8", xml_declaration=True), count
 
-def _set_color(text_node, mark: str) -> None:
-    run = next((p for p in text_node.iterancestors() if p.tag == f"{{{W_NS}}}r"), None)
-    if run is None:
+def _set_color(text_node, mark: str, parents) -> None:
+    node = text_node
+    while node in parents and parents[node].tag != f"{{{W_NS}}}r":
+        node = parents[node]
+    if node not in parents:
         return
+    run = parents[node]
     rpr = run.find("w:rPr", NS)
     if rpr is None:
         rpr = ET.Element(f"{{{W_NS}}}rPr")
