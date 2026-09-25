@@ -50,10 +50,21 @@ class StreamingDocxPatchEngine:
             if not texts:
                 continue
             joined = "".join(t.text or "" for t in texts)
-            start = joined.find(old)
-            if start < 0:
+            starts = []
+            cursor = 0
+            while True:
+                found = joined.find(old, cursor)
+                if found < 0:
+                    break
+                starts.append(found)
+                cursor = found + len(old)
+            if not starts:
+                continue
+            if len(starts) > 1:
+                count += len(starts)
                 continue
 
+            start = starts[0]
             end = start + len(old)
             pos = 0
             touched = []
