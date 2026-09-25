@@ -6,6 +6,7 @@ from gip.analyzer import DocxReportAnalyzer
 from gip.patch_planner import PatchPlanBuilder
 from gip.docx_patch_engine import DocxPatchEngine
 from gip.streaming_patch_engine import StreamingDocxPatchEngine
+from gip.streaming_verify import StreamingDocxVerifier
 from gip.docx_verify_engine import DocxVerificationEngine
 from gip.full_inspection import inspect_document
 
@@ -20,10 +21,11 @@ def patch_and_verify_report(path: Path, expected_contract=None, expected_address
     applied = []
     verification = []
     engine = StreamingDocxPatchEngine()
-    verifier = DocxVerificationEngine()
+    verifier = StreamingDocxVerifier()
     for patch in patches:
         engine.apply(path, patch)
-        check = verifier.verify_patch(path, patch)
+        passed, errors = verifier.verify(path, patch)
+        check = type("Check", (), {"passed": passed, "findings": [type("Finding", (), {"__dict__": {"code": e}})() for e in errors]})()
         verification.append({
             "passed": check.passed,
             "findings": [f.__dict__ for f in check.findings],
