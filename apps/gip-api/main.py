@@ -3,9 +3,9 @@ from tempfile import TemporaryDirectory
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from .gip_adapter import analyze_uploaded_calculations
-from .report_adapter import inspect_uploaded_report
-from .full_check_service import patch_and_verify_report
+from gip_adapter import analyze_uploaded_calculations
+from report_adapter import inspect_uploaded_report
+from full_check_service import patch_and_verify_report
 
 app = FastAPI(title="GIP API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
