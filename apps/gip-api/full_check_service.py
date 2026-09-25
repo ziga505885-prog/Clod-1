@@ -6,6 +6,7 @@ from gip.analyzer import DocxReportAnalyzer
 from gip.patch_planner import PatchPlanBuilder
 from gip.docx_patch_engine import DocxPatchEngine
 from gip.docx_verify_engine import DocxVerificationEngine
+from gip.full_inspection import inspect_document
 
 def patch_and_verify_report(path: Path, expected_contract=None, expected_address=None, expected_date=None):
     analysis = DocxReportAnalyzer().analyze(path)
