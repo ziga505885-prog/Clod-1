@@ -55,3 +55,19 @@ def test_streaming_patch_normal_is_green(tmp_path):
     root = ET.fromstring(data)
     color = root.find(".//{"+W+"}color")
     assert color is not None and color.attrib.get("{"+W+"}val") == "008000"
+
+
+def test_streaming_patch_across_word_runs(tmp_path):
+    path = tmp_path / "split.docx"
+    xml = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="{W}"><w:body><w:p>
+<w:r><w:t>Адрес: Пушки</w:t></w:r><w:r><w:t>нская, 53А</w:t></w:r>
+</w:p></w:body></w:document>'''.encode()
+    _docx(path, {"word/document.xml": xml})
+    patch = Patch(PatchKind.ADDRESS, "Пушкинская, 53А", "Набережная, 28А", "blue")
+    StreamingDocxPatchEngine().apply(path, patch)
+    with ZipFile(path) as z:
+        data = z.read("word/document.xml").decode()
+    assert "Пушкинская, 53А" not in data
+    assert "Набережная, 28А" in data
+    assert "Адрес: " in data
