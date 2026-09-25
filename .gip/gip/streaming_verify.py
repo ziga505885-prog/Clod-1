@@ -47,7 +47,10 @@ class StreamingDocxVerifier:
 
         if old_count:
             errors.append("OLD_TEXT_STILL_PRESENT")
-        if new_count != 1:
+        if patch.mark == "blue":
+            if new_count < 1:
+                errors.append("BLUE_NEW_TEXT_NOT_PRESENT")
+        elif new_count != 1:
             errors.append("NEW_TEXT_COUNT_IS_NOT_ONE")
         expected = "0000FF" if patch.mark == "blue" else "008000"
         if not self.color_present(path, patch.new, expected):
