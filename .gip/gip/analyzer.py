@@ -9,6 +9,8 @@ from .model import Defect, InspectionReport, ReportMetadata
 _CONTRACT_RE=re.compile(r"(?:договор(?:а|у)?|контракт(?:а|у)?)[^\d№]{0,20}(?:№\s*)?([A-Za-zА-Яа-я0-9./_-]+)",re.I)
 _DATE_RE=re.compile(r"\b(?:\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}-\d{2}-\d{2})\b")
 _DEFECT_HINTS=("трещин","трещина","разруш","корроз","отсутств","повреж","замач","вымыва","обруш","деформац","прогиб","скол","ослаб")
+_ADDRESS_LABEL_RE=re.compile(r"(?:адрес|место\s+расположения)\s*[:№-]?\s*(.+)",re.I)
+_ADDRESS_PHRASE_RE=re.compile(r"(?:по|на)\s+(?:ул\.?|улице|просп\.?|проспекту|пер\.?|переулку|пл\.?|площади|ш\.?|шоссе|наб\.?|набережной)\s+[^,.;\n]{2,80},\s*\d+[А-Яа-яA-Za-z]?(?:\s*[-/]\s*\d+[А-Яа-яA-Za-z]?)?",re.I)
 
 @dataclass(frozen=True)
 class AnalysisResult:
@@ -29,11 +31,10 @@ class DocxReportAnalyzer:
         contracts=_unique(m.group(1) for m in _CONTRACT_RE.finditer(all_text))
         dates=_unique(_DATE_RE.findall(all_text))
         addresses=_address_candidates(part_text)
-        body=parsed.paragraphs
-        address=self._address(body) or (addresses[0] if addresses else None)
-        candidates=[p for p in body if any(h in p.lower() for h in _DEFECT_HINTS)]
+        address=self._address(parsed.paragraphs) or (addresses[0] if addresses else None)
+        candidates=[p for p in parsed.paragraphs if any(h in p.lower() for h in _DEFECT_HINTS)]
         defects=[Defect(id=None,structure="",description=p) for p in candidates]
-        return AnalysisResult(InspectionReport(metadata=ReportMetadata(contract_number=contracts[0] if contracts else None,address=address,dates=dates),defects=defects),body,parsed.tables,candidates,contracts,addresses,dates,part_text)
+        return AnalysisResult(InspectionReport(metadata=ReportMetadata(contract_number=contracts[0] if contracts else None,address=address,dates=dates),defects=defects),parsed.paragraphs,parsed.tables,candidates,contracts,addresses,dates,part_text)
 
     @staticmethod
     def _address(paragraphs):
@@ -53,8 +54,9 @@ def _address_candidates(parts):
     results=[]
     for _,text in parts:
         for line in re.split(r"[\n\r]+",text):
-            m=re.search(r"(?:адрес|место\s+расположения)\s*[:№-]?\s*(.+)",line,re.I)
-            if m:
+            for m in _ADDRESS_LABEL_RE.finditer(line):
                 value=m.group(1).strip(" .;,:»\"")
                 if len(value)>=8: results.append(value)
+            for m in _ADDRESS_PHRASE_RE.finditer(line):
+                results.append(m.group(0).strip(" .;,:»\""))
     return _unique(results)
