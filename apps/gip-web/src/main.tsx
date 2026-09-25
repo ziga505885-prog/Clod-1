@@ -33,7 +33,7 @@ function App() {
     setLoading(true); setError(""); setResult(null);
     const form = new FormData();
     form.append("report", files[0]);
-    files.slice(1).forEach(f => form.append("calculation_files", f));
+    files.slice(1).forEach(f => f.name.toLowerCase().endsWith(".pdf") ? form.append("graphics_files", f) : form.append("calculation_files", f));
     try {
       const r = await fetch("http://localhost:8000/api/v1/full-check", { method: "POST", body: form });
       if (!r.ok) throw new Error(await r.text());
