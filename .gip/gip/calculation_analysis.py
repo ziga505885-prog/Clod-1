@@ -51,7 +51,16 @@ def _read_text(path: Path) -> str:
     s=path.suffix.lower()
     if s==".docx": return _xml_text(path)
     if s in {".txt",".md"}: return path.read_text(encoding="utf-8",errors="replace")
-    if s==".doc": return ""
+    if s==".doc":
+        # Legacy binary DOC: use antiword when available.
+        import shutil, subprocess
+        tool = shutil.which("antiword")
+        if tool:
+            try:
+                return subprocess.run([tool, str(path)], capture_output=True, text=True, check=True).stdout
+            except (OSError, subprocess.SubprocessError):
+                return ""
+        return ""
     if s==".xlsx":
         try:
             from openpyxl import load_workbook
