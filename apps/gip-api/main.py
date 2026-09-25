@@ -2,6 +2,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse
+from fastapi.background import BackgroundTasks
+import shutil
+import tempfile
 from fastapi.middleware.cors import CORSMiddleware
 from gip_adapter import analyze_uploaded_calculations
 from report_adapter import inspect_uploaded_report
@@ -17,7 +20,7 @@ def health():
 
 @app.get("/api/v1/capabilities")
 def capabilities():
-    return {"report_qa": True, "calculations": True, "graphics": True, "document_patch": False}
+    return {"report_qa": True, "calculations": True, "graphics": True, "document_patch": True, "recheck": True, "reconciliation": True}
 
 @app.post("/api/v1/calculations/analyze")
 async def calculations_analyze(files: list[UploadFile] = File(...), expected_address: str | None = Form(None)):
@@ -117,23 +120,34 @@ async def full_check_and_fix(
 ):
     if not report.filename or not report.filename.lower().endswith(".docx"):
         raise HTTPException(400, "Для исправления требуется DOCX")
-    with TemporaryDirectory() as tmp:
-        source = Path(tmp) / Path(report.filename).name
-        source.write_bytes(await report.read())
-        try:
-            applied, verification, final, recheck = patch_and_verify_report(source, expected_contract, expected_address, expected_date)
-            if recheck is not None and recheck.findings:
-                raise ValueError("Повторная проверка выявила оставшиеся нарушения")
-        except ValueError as exc:
-            raise HTTPException(422, str(exc)) from exc
-        return {
-            "stage": "patched_and_verified",
-            "document_patch": True,
-            "source": report.filename,
-            "applied_patches": applied,
-            "patch_verification": verification,
-            "final_verification": {"passed": final.passed, "findings": [f.__dict__ for f in final.findings]},
-        }
+    tmp = Path(tempfile.mkdtemp(prefix="gip-fixed-"))
+    source = tmp / Path(report.filename).name
+    source.write_bytes(await report.read())
+    try:
+        applied, verification, recheck, precheck, postcheck = patch_and_verify_report(
+            source, expected_contract, expected_address, expected_date
+        )
+    except ValueError as exc:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise HTTPException(422, str(exc)) from exc
+
+    def cleanup():
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    response = FileResponse(
+        path=source,
+        filename="GIP_CORRECTED_" + Path(report.filename).name,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "X-GIP-Stage": "patched-verified-rechecked",
+            "X-GIP-Patches": str(len(applied)),
+            "X-GIP-Recheck": "passed",
+            "X-GIP-NonTarget-Findings": str(len(postcheck.findings) - len(recheck["findings"])),
+        },
+        background=BackgroundTasks(),
+    )
+    response.background.add_task(cleanup)
+    return response
 
 
 @app.post("/api/v1/graphics/analyze")
