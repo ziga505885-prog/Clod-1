@@ -59,6 +59,7 @@ async def reports_analyze(file: UploadFile = File(...), expected_contract: str |
 async def full_check(
     report: UploadFile = File(...),
     calculation_files: list[UploadFile] = File(default=[]),
+    graphics_files: list[UploadFile] = File(default=[]),
     expected_contract: str | None = Form(None),
     expected_address: str | None = Form(None),
     expected_date: str | None = Form(None),
@@ -80,6 +81,13 @@ async def full_check(
         if calc_paths:
             calc_result = analyze_uploaded_calculations(calc_paths, expected_address)
 
+        graphics_result = []
+        for upload in graphics_files:
+            if upload.filename:
+                path = Path(tmp) / Path(upload.filename).name
+                path.write_bytes(await upload.read())
+                graphics_result.append(inspect_graphics(path).__dict__)
+
         return {
             "stage": "analysis_only",
             "document_patch": False,
@@ -96,8 +104,8 @@ async def full_check(
                 "traces": [t.__dict__ for t in calc_result.traces],
                 "sources": [p.name for p in calc_paths],
             },
+            "graphics": graphics_result,
         }
-
 
 @app.post("/api/v1/full-check-and-fix")
 async def full_check_and_fix(
