@@ -16,8 +16,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install pytest
-        run: python -m pip install pytest
+      - name: Install GIP test dependencies
+        run: python -m pip install pytest python-docx
       - name: Test GIP foundation
         working-directory: .gip
         run: pytest -q
