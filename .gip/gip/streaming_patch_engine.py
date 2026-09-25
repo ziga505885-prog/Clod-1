@@ -1,13 +1,8 @@
-"""ZIP/XML based DOCX patching for very large reports.
-
-Only XML parts are rewritten; the whole document is never loaded by python-docx.
-Address/date replacements are blue and carry no explanatory text.
-"""
+"""ZIP/XML DOCX patching with support for text split across Word runs."""
 from __future__ import annotations
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from zipfile import ZipFile, ZIP_DEFLATED
-import re
 import xml.etree.ElementTree as ET
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -17,32 +12,29 @@ ET.register_namespace("w", W_NS)
 class StreamingDocxPatchEngine:
     def apply(self, path: str | Path, patch) -> None:
         path = Path(path)
-        old = patch.old
-        if not old:
+        if not patch.old:
             raise ValueError("Patch.old must not be empty")
         with ZipFile(path, "r") as zin:
-            xml_names = [n for n in zin.namelist() if n.startswith("word/") and n.endswith(".xml")]
+            matched_parts = {}
             occurrences = 0
-            matched_parts: dict[str, bytes] = {}
-            for name in xml_names:
+            for name in zin.namelist():
+                if not (name.startswith("word/") and name.endswith(".xml")):
+                    continue
                 raw = zin.read(name)
                 if "<w:t" not in raw.decode("utf-8", "ignore"):
                     continue
-                changed, count = self._patch_xml(raw, old, patch.new, patch.mark)
+                changed, count = self._patch_xml(raw, patch.old, patch.new, patch.mark)
                 occurrences += count
                 if count:
                     matched_parts[name] = changed
             if occurrences != 1:
-                raise ValueError(f"Expected exactly one DOCX occurrence, found {occurrences}: {old!r}")
+                raise ValueError(f"Expected exactly one DOCX occurrence, found {occurrences}: {patch.old!r}")
             with NamedTemporaryFile(suffix=".docx", delete=False, dir=path.parent) as tmp:
                 temp_path = Path(tmp.name)
             try:
                 with ZipFile(temp_path, "w", ZIP_DEFLATED) as zout:
                     for item in zin.infolist():
-                        data = matched_parts.get(item.filename)
-                        if data is None:
-                            data = zin.read(item.filename)
-                        zout.writestr(item, data)
+                        zout.writestr(item, matched_parts.get(item.filename, zin.read(item.filename)))
                 temp_path.replace(path)
             finally:
                 if temp_path.exists():
@@ -61,18 +53,39 @@ class StreamingDocxPatchEngine:
             start = joined.find(old)
             if start < 0:
                 continue
-            # Keep this conservative: replacement must fit one contiguous text span.
+
+            end = start + len(old)
             pos = 0
+            touched = []
             for t in texts:
                 value = t.text or ""
-                end = pos + len(value)
-                if pos <= start and start + len(old) <= end:
-                    local = start - pos
-                    t.text = value[:local] + new + value[local + len(old):]
-                    _set_color(t, mark, parents)
-                    count += 1
-                    break
-                pos = end
+                seg_start, seg_end = pos, pos + len(value)
+                if seg_end > start and seg_start < end:
+                    touched.append((t, value, seg_start, seg_end))
+                pos = seg_end
+
+            if not touched:
+                continue
+
+            # Preserve the text outside the match. Put the complete replacement
+            # into the first touched run and remove only the matched portions
+            # from subsequent runs. This handles addresses/dates split by Word
+            # formatting runs without disturbing surrounding text.
+            first = touched[0][0]
+            first_value = touched[0][1]
+            first_start = max(0, start - touched[0][2])
+            first_end = min(len(first_value), end - touched[0][2])
+            first.text = first_value[:first_start] + new + first_value[first_end:]
+            _set_color(first, mark, parents)
+
+            for t, value, seg_start, seg_end in touched[1:]:
+                local_start = max(0, start - seg_start)
+                local_end = min(len(value), end - seg_start)
+                t.text = value[:local_start] + value[local_end:]
+                if (t.text or "") == "":
+                    t.text = None
+
+            count += 1
         return ET.tostring(root, encoding="utf-8", xml_declaration=True), count
 
 def _set_color(text_node, mark: str, parents) -> None:
