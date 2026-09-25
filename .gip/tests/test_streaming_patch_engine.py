@@ -1,7 +1,6 @@
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 import xml.etree.ElementTree as ET
-import pytest
 
 from gip.streaming_patch_engine import StreamingDocxPatchEngine
 from gip.patches import Patch, PatchKind
@@ -36,12 +35,17 @@ def test_streaming_patch_header_address(tmp_path):
     color = root.find(".//{"+W+"}color")
     assert color is not None and color.attrib.get("{"+W+"}val") == "0000FF"
 
-def test_streaming_patch_requires_single_match(tmp_path):
+def test_streaming_patch_address_replaces_all_matches(tmp_path):
     path = tmp_path / "report.docx"
     _docx(path, {"word/document.xml": _xml("Ошибка Ошибка")})
     patch = Patch(PatchKind.ADDRESS, "Ошибка", "Исправлено", "blue")
-    with pytest.raises(ValueError, match="exactly one"):
-        StreamingDocxPatchEngine().apply(path, patch)
+    StreamingDocxPatchEngine().apply(path, patch)
+    with ZipFile(path) as z:
+        data = z.read("word/document.xml").decode()
+    assert data.count("Исправлено") == 2
+    assert "Ошибка" not in data
+    assert data.count('w:val="0000FF"') == 2
+
 
 def test_streaming_patch_normal_is_green(tmp_path):
     path = tmp_path / "report.docx"
