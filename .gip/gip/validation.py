@@ -15,16 +15,14 @@ class ValidationResult:
     findings: list[Finding] = field(default_factory=list)
 
 def validate_report(report: InspectionReport) -> ValidationResult:
-    findings = []
+    findings=[]
     for d in report.defects:
         if d.category and d.category.value not in ALLOWED_CATEGORIES:
-            findings.append(Finding(
-                "INVALID_CATEGORY",
-                f"Invalid category for defect {d.id}",
-                [d.description],
-            ))
-
-    for finding in validate_defect_consistency(report):
-        findings.append(Finding(finding.code, finding.message, finding.evidence))
-
-    return ValidationResult(not findings, findings)
+            findings.append(Finding("INVALID_CATEGORY",f"Invalid category for defect {d.id}",[d.description]))
+    # Cross-source completeness is meaningful only when at least one target
+    # registry is actually present. An isolated report model is not incomplete
+    # merely because summary/characteristics were not loaded.
+    if report.defect_summary or report.defect_characteristics or report.drawing_defects or report.photo_defects:
+        for finding in validate_defect_consistency(report):
+            findings.append(Finding(finding.code,finding.message,finding.evidence))
+    return ValidationResult(not findings,findings)
