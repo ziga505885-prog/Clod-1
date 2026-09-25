@@ -33,17 +33,19 @@ def _extract_id(value):
     if p in {"п","к","с","л","г","т"}:return f"{p.upper()}-{n}"
     return None
 
+def _table_blob(headers,rows):
+    return _norm(" ".join(headers)+" "+" ".join(" ".join(r) for r in rows[:3]))
+
 def _looks_like_summary(headers,rows):
-    blob=_norm(" ".join(headers)+" "+" ".join(" ".join(r) for r in rows[:3]))
-    return any(_norm(x) in blob for x in _SUMMARY_HINTS) or ("номер" in blob and "описание" in blob and "характеристик" not in blob)
+    blob=_table_blob(headers,rows)
+    return any(_norm(x) in blob for x in _SUMMARY_HINTS) or ("дефект" in blob and "описание" in blob and "характеристик" not in blob)
 
 def _looks_like_characteristics(headers,rows):
-    blob=_norm(" ".join(headers)+" "+" ".join(" ".join(r) for r in rows[:3]))
+    blob=_table_blob(headers,rows)
     return any(_norm(x) in blob for x in _CHARACTERISTIC_HINTS) or ("характеристика" in blob and "дефект" in blob)
 
 def _looks_like_drawing(headers,rows):
-    blob=_norm(" ".join(headers)+" "+" ".join(" ".join(r) for r in rows[:3]))
-    return any(_norm(x) in blob for x in _DRAWING_HINTS)
+    return any(_norm(x) in _table_blob(headers,rows) for x in _DRAWING_HINTS)
 
 def _row_defect(row,headers,source,row_index):
     text=" | ".join(x for x in row if x).strip()
