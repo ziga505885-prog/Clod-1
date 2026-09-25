@@ -6,7 +6,7 @@ from .analyzer import AnalysisResult
 
 _ID_RE=re.compile(r"\b(ДКР|Деф|Дефект|Тр|Т|П|К|С|Л|Г)\s*[-№]?\s*(\d+)\b",re.I)
 _SECTION4_RE=re.compile(r"^\s*4(?:[.\s]|$).*характеристик",re.I)
-_SUMMARY_HINTS=("сводная ведомость","ведомость дефектов","сводная таблица","дефектов")
+_SUMMARY_HINTS=("сводная ведомость","ведомость дефектов","сводная таблица")
 _CHARACTERISTIC_HINTS=("характеристик дефектов","характеристика дефектов")
 _DRAWING_HINTS=("условные обозначения","графика","схема","чертеж")
 
@@ -33,8 +33,7 @@ def _extract_id(value):
     if p in {"п","к","с","л","г","т"}:return f"{p.upper()}-{n}"
     return None
 
-def _table_blob(headers,rows):
-    return _norm(" ".join(headers)+" "+" ".join(" ".join(r) for r in rows[:3]))
+def _table_blob(headers,rows): return _norm(" ".join(headers)+" "+" ".join(" ".join(r) for r in rows[:3]))
 
 def _looks_like_summary(headers,rows):
     blob=_table_blob(headers,rows)
@@ -44,8 +43,7 @@ def _looks_like_characteristics(headers,rows):
     blob=_table_blob(headers,rows)
     return any(_norm(x) in blob for x in _CHARACTERISTIC_HINTS) or ("характеристика" in blob and "дефект" in blob)
 
-def _looks_like_drawing(headers,rows):
-    return any(_norm(x) in _table_blob(headers,rows) for x in _DRAWING_HINTS)
+def _looks_like_drawing(headers,rows): return any(_norm(x) in _table_blob(headers,rows) for x in _DRAWING_HINTS)
 
 def _row_defect(row,headers,source,row_index):
     text=" | ".join(x for x in row if x).strip()
@@ -74,9 +72,12 @@ def analyze_domain(analysis):
     for table in analysis.tables:
         if not table:continue
         headers,rows=table[0],table[1:]
-        if _looks_like_summary(headers,rows):summary += [x for ri,row in enumerate(rows,1) if (x:=_row_defect(row,headers,"summary",ri))]
-        elif _looks_like_characteristics(headers,rows):characteristics += [x for ri,row in enumerate(rows,1) if (x:=_row_defect(row,headers,"characteristics",ri))]
-        elif _looks_like_drawing(headers,rows):drawings += [x for ri,row in enumerate(rows,1) if (x:=_row_defect(row,headers,"drawing",ri))]
+        if _looks_like_characteristics(headers,rows):
+            characteristics += [x for ri,row in enumerate(rows,1) if (x:=_row_defect(row,headers,"characteristics",ri))]
+        elif _looks_like_summary(headers,rows):
+            summary += [x for ri,row in enumerate(rows,1) if (x:=_row_defect(row,headers,"summary",ri))]
+        elif _looks_like_drawing(headers,rows):
+            drawings += [x for ri,row in enumerate(rows,1) if (x:=_row_defect(row,headers,"drawing",ri))]
     report=[DomainDefect(_extract_id(p),p,"report",i) for i,p in enumerate(analysis.candidate_defect_paragraphs)]
     findings=[];_compare_sources(summary,"summary",characteristics,"characteristics",findings);_compare_sources(report,"report",summary,"summary",findings);_compare_sources(report,"report",characteristics,"characteristics",findings)
     _duplicates(summary,"summary",findings);_duplicates(characteristics,"characteristics",findings);_duplicates(drawings,"drawing",findings)
