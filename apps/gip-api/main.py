@@ -31,3 +31,21 @@ async def calculations_analyze(files: list[UploadFile] = File(...), expected_add
             raise HTTPException(400, "Не удалось получить имена файлов")
         result = analyze_uploaded_calculations(paths, expected_address)
         return {"findings": [f.__dict__ for f in result.findings], "traces": [t.__dict__ for t in result.traces], "sources": [p.name for p in paths]}
+
+
+@app.post("/api/v1/reports/analyze")
+async def reports_analyze(file: UploadFile = File(...), expected_contract: str | None = Form(None), expected_address: str | None = Form(None), expected_date: str | None = Form(None)):
+    if not file.filename:
+        raise HTTPException(400, "Не выбран отчёт")
+    with TemporaryDirectory() as tmp:
+        path = Path(tmp) / Path(file.filename).name
+        path.write_bytes(await file.read())
+        result = inspect_uploaded_report(path, expected_contract, expected_address, expected_date)
+        return {
+            "findings": [f.__dict__ for f in result.findings],
+            "contracts": result.analysis.contract_candidates,
+            "addresses": result.analysis.address_candidates,
+            "dates": result.analysis.date_candidates,
+            "defects": len(result.domain.report),
+            "summary_defects": len(result.domain.summary),
+        }
