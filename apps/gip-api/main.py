@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from gip_adapter import analyze_uploaded_calculations
 from report_adapter import inspect_uploaded_report
 from full_check_service import patch_and_verify_report
+from graphics_adapter import inspect_graphics
 
 app = FastAPI(title="GIP API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -124,3 +125,20 @@ async def full_check_and_fix(
             "patch_verification": verification,
             "final_verification": {"passed": final.passed, "findings": [f.__dict__ for f in final.findings]},
         }
+
+
+@app.post("/api/v1/graphics/analyze")
+async def graphics_analyze(files: list[UploadFile] = File(...)):
+    if not files:
+        raise HTTPException(400, "Не загружены графические материалы")
+    with TemporaryDirectory() as tmp:
+        results = []
+        for upload in files:
+            if not upload.filename:
+                continue
+            path = Path(tmp) / Path(upload.filename).name
+            path.write_bytes(await upload.read())
+            results.append(inspect_graphics(path).__dict__)
+        if not results:
+            raise HTTPException(400, "Не удалось получить графические файлы")
+        return {"materials": results, "policy": "text-extraction-is-not-proof-of-absence-of-defects"}
